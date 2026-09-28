@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>달팽이 키우기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --moss:#16211a; --moss-2:#27382b; --leaf:#7fa86a;
+    --shell:#c98b3c; --shell-dark:#8c5a22;
+    --slime:#eef3df; --blush:#e79ba6; --dew:#b7d9c4; --gold:#f0c674;
+  }
+  :root:not([data-theme="light"]){ color-scheme: dark; }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; min-height:100vh; padding:calc(20px + env(safe-area-inset-top,0px)) 14px calc(60px + env(safe-area-inset-bottom,0px));
+    background:radial-gradient(130% 80% at 50% 0%, var(--moss-2) 0%, var(--moss) 65%), var(--moss);
+    color:var(--slime); font-family:"Gowun Dodum",system-ui,sans-serif;
+    display:flex; flex-direction:column; align-items:center; gap:14px; overflow-x:hidden;
+  }
+  h1{font-family:"Gaegu",cursive;font-size:clamp(26px,6vw,40px);margin:0;color:var(--dew)}
+  .wrap{width:min(500px,94vw)}
+
+  /* 상단 상태바 */
+  .hud{display:flex;justify-content:space-between;align-items:center;gap:10px;
+       background:rgba(255,255,255,.05);border-radius:14px;padding:10px 14px}
+  .slime-n{font-family:"Gaegu",cursive;font-size:30px;color:var(--gold);line-height:1}
+  .hud small{opacity:.6;font-size:12px;display:block}
+  .rate{text-align:right;font-size:13px;opacity:.7}
+  .combo{font-family:"Gaegu",cursive;font-size:26px;color:var(--blush);opacity:0;transition:opacity .2s}
+  .combo.on{opacity:1}
+
+  /* 무대 */
+  .stage{position:relative;width:min(500px,94vw);aspect-ratio:4/3;touch-action:none;user-select:none;cursor:grab;max-width:100%}
+  .stage.petting{cursor:grabbing}
+  .stage svg{width:100%;height:100%;display:block;overflow:visible;max-width:100%}
+  #snail{transform-origin:50% 70%;animation:bob 5s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  #shell-g{transition:transform .18s ease}
+  .stage.petting #shell-g{transform:scale(1.04)}
+  .stalk{transition:transform .3s}
+  .stage.petting .stalk-l{animation:wl .45s ease-in-out infinite}
+  .stage.petting .stalk-r{animation:wr .55s ease-in-out infinite}
+  @keyframes wl{0%,100%{transform:rotate(0)}50%{transform:rotate(-8deg)}}
+  @keyframes wr{0%,100%{transform:rotate(0)}50%{transform:rotate(9deg)}}
+  #eyes-happy{opacity:0;transition:opacity .15s}
+  .happy #eyes-open{opacity:0}
+  .happy #eyes-happy{opacity:1}
+  #blush{opacity:0;transition:opacity .4s}
+  .wear{display:none}
+  .wear.on{display:inline}
+  #wingsEl.on{animation:shimmer 2.4s ease-in-out infinite}
+  @keyframes shimmer{0%,100%{opacity:.65}50%{opacity:1}}
+  .stage.rainbow-on #shell-body{animation:huecycle 4s linear infinite}
+  @keyframes huecycle{to{filter:hue-rotate(360deg)}}
+
+  .bubble{position:absolute;left:50%;top:1%;transform:translateX(-50%);
+    background:var(--slime);color:#2b3a2c;font-family:"Gaegu",cursive;font-size:20px;
+    padding:7px 15px 9px;border-radius:18px;white-space:nowrap;pointer-events:none;
+    opacity:0;transition:opacity .3s,transform .3s}
+  .bubble::after{content:"";position:absolute;bottom:-7px;left:50%;margin-left:-7px;
+    border:7px solid transparent;border-top-color:var(--slime);border-bottom:0}
+  .bubble.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+
+  .pop{position:absolute;pointer-events:none;font-family:"Gaegu",cursive;font-size:22px;
+    color:var(--gold);animation:fly 1s ease-out forwards;text-shadow:0 2px 6px #000}
+  @keyframes fly{from{opacity:1;transform:translate(-50%,-50%)}to{opacity:0;transform:translate(-50%,-190%)}}
+
+  /* 이벤트 오브젝트 */
+  .obj{position:absolute;font-size:38px;cursor:pointer;line-height:1;
+       filter:drop-shadow(0 4px 8px rgba(0,0,0,.5));transition:transform .1s}
+  .obj:active{transform:scale(.85)}
+  .bird{animation:flyby 7s linear forwards}
+  @keyframes flyby{from{left:-15%}to{left:110%}}
+  .lettuce{animation:drop .9s cubic-bezier(.4,1.5,.6,1) forwards}
+  @keyframes drop{from{transform:translateY(-220px) rotate(-40deg)}to{transform:translateY(0) rotate(0)}}
+  .rain{position:absolute;inset:0;pointer-events:none;overflow:hidden;opacity:0;transition:opacity .5s}
+  .rain.on{opacity:1}
+  .rain i{position:absolute;top:-20px;width:2px;height:16px;background:var(--dew);opacity:.5;
+    animation:fall 1s linear infinite}
+  @keyframes fall{to{transform:translateY(340px)}}
+
+  /* 진화 배지 */
+  .stagebadge{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;opacity:.75;margin-bottom:6px}
+  .bar{height:8px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+  .bar span{display:block;height:100%;width:0;border-radius:99px;
+    background:linear-gradient(90deg,var(--leaf),var(--dew));transition:width .3s}
+  .mood span{background:linear-gradient(90deg,var(--blush),var(--gold))}
+
+  /* 상점 */
+  h2{font-family:"Gaegu",cursive;font-size:24px;margin:18px 0 8px;color:var(--dew)}
+  .shop{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+  .item{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);
+    border-radius:12px;padding:10px 12px;text-align:left;color:inherit;font:inherit;
+    cursor:pointer;display:flex;flex-direction:column;gap:3px;transition:background .15s}
+  .item:hover:not(:disabled){background:rgba(255,255,255,.1)}
+  .item:disabled{opacity:.38;cursor:not-allowed}
+  .item b{font-family:"Gaegu",cursive;font-size:19px;font-weight:400}
+  .item i{font-style:normal;font-size:11.5px;opacity:.6;line-height:1.5}
+  .item u{text-decoration:none;font-size:13px;color:var(--gold);margin-top:2px}
+  .item.worn{border-color:var(--gold);background:rgba(240,198,116,.12)}
+
+  .toast{position:fixed;left:50%;bottom:calc(26px + env(safe-area-inset-bottom,0px));transform:translate(-50%,80px);
+    background:var(--gold);color:#2b2313;font-family:"Gaegu",cursive;font-size:19px;
+    padding:10px 20px;border-radius:99px;opacity:0;transition:all .35s;z-index:9}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+
+  .prestige-box{margin-top:18px;padding:14px;border-radius:14px;
+    background:rgba(240,198,116,.08);border:1px solid rgba(240,198,116,.35)}
+  .prestige-box p{margin:0 0 10px;font-size:13px;line-height:1.6;opacity:.85}
+  .pbtn{width:100%;padding:10px;border-radius:10px;border:0;cursor:pointer;
+    background:var(--gold);color:#2b2313;font-family:"Gaegu",cursive;font-size:18px}
+  .pbtn:hover{filter:brightness(1.08)}
+
+  .ach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+  .ach{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);
+    border-radius:12px;padding:9px 11px;font-size:12.5px;opacity:.4;display:flex;gap:8px;align-items:center}
+  .ach.done{opacity:1;border-color:rgba(240,198,116,.4);background:rgba(240,198,116,.07)}
+  .ach span.ico{font-size:17px}
+
+  .foot{display:flex;gap:14px;justify-content:center;margin-top:20px;flex-wrap:wrap}
+  .foot button{background:none;border:0;color:var(--slime);font:inherit;font-size:13px;
+    opacity:.45;cursor:pointer;padding:6px}
+  .foot button:hover{opacity:.9;text-decoration:underline}
+  :focus-visible{outline:2px solid var(--dew);outline-offset:3px;border-radius:6px}
+  @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
+</style>
+</head>
+<body>
+
+<h1>달팽이 키우기</h1>
+
+<div class="wrap hud">
+  <div><small>점액</small><div class="slime-n" id="slime">0</div></div>
+  <div class="combo" id="combo">×1.0</div>
+  <div class="rate"><span id="rate">초당 0</span><br><small id="rainlbl"></small></div>
+</div>
+
+<div class="stage" id="stage">
+  <div class="bubble" id="bubble">…</div>
+  <div class="rain" id="rain"></div>
+  <svg viewBox="0 0 400 300" role="img" aria-label="쓰다듬을 수 있는 달팽이">
+    <ellipse cx="205" cy="234" rx="132" ry="12" fill="#000" opacity=".25"/>
+    <g id="snail">
+      <g class="wear" data-wear="wings" id="wingsEl">
+        <path d="M150 195 Q100 160 85 190 Q95 215 150 205 Z" fill="var(--dew)" opacity=".8"/>
+        <path d="M225 195 Q275 160 290 190 Q280 215 225 205 Z" fill="var(--dew)" opacity=".8"/>
+      </g>
+      <path d="M108 216 Q110 190 150 188 L238 188 Q272 188 279 172 Q286 152 300 154
+               Q315 157 312 176 Q307 203 274 212 Q238 220 150 219 Z" fill="#9fc08a"/>
+      <path d="M108 216 Q140 224 200 222 Q250 220 274 212 Q238 220 150 219 Z" fill="#7fa86a" opacity=".55"/>
+
+      <g class="stalk stalk-l" style="transform-origin:296px 158px">
+        <path d="M296 158 Q286 130 290 112" stroke="#9fc08a" stroke-width="7" fill="none" stroke-linecap="round"/>
+        <circle cx="290" cy="108" r="7" fill="#9fc08a"/>
+        <g id="eyes-open-l"><circle cx="290" cy="108" r="3.2" fill="#22301f"/></g>
+        <circle class="wear" data-wear="shades" cx="290" cy="108" r="6.5" fill="#1a1a1a"/>
+      </g>
+      <g class="stalk stalk-r" style="transform-origin:308px 160px">
+        <path d="M308 160 Q316 134 314 118" stroke="#9fc08a" stroke-width="7" fill="none" stroke-linecap="round"/>
+        <circle cx="314" cy="114" r="7" fill="#9fc08a"/>
+        <g id="eyes-open-r"><circle cx="314" cy="114" r="3.2" fill="#22301f"/></g>
+        <circle class="wear" data-wear="shades" cx="314" cy="114" r="6.5" fill="#1a1a1a"/>
+      </g>
+      <g id="eyes-open"></g>
+      <g id="eyes-happy">
+        <path d="M286 108 q4 -5 8 0" stroke="#22301f" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+        <path d="M310 114 q4 -5 8 0" stroke="#22301f" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+      </g>
+      <g id="blush"><ellipse cx="292" cy="174" rx="9" ry="5" fill="var(--blush)" opacity=".7"/></g>
+
+      <g id="shell-g" style="transform-origin:192px 150px">
+        <circle id="shell-body" cx="192" cy="150" r="56" fill="var(--shell)"/>
+        <path d="M192 150 a8 8 0 1 1 -16 0 a20 20 0 1 1 40 0 a32 32 0 1 1 -64 0
+                 a44 44 0 1 1 88 0 a56 56 0 1 1 -112 0"
+              fill="none" stroke="var(--shell-dark)" stroke-width="5" stroke-linecap="round" opacity=".7"/>
+        <circle cx="172" cy="126" r="16" fill="#fff" opacity=".13"/>
+      </g>
+
+      <!-- 장신구 -->
+      <g class="wear" data-wear="straw">
+        <ellipse cx="190" cy="100" rx="52" ry="12" fill="#e0c07a"/>
+        <path d="M162 100 q28 -34 56 0 z" fill="#d4ae60"/>
+        <rect x="162" y="90" width="56" height="7" rx="3" fill="#b0804a"/>
+      </g>
+      <g class="wear" data-wear="ribbon">
+        <path d="M240 108 l-22 -12 v24 z" fill="var(--blush)"/>
+        <path d="M244 108 l22 -12 v24 z" fill="var(--blush)"/>
+        <circle cx="242" cy="108" r="6" fill="#c97f8d"/>
+      </g>
+      <g class="wear" data-wear="crown">
+        <path d="M160 96 l8 -30 14 18 10 -26 10 26 14 -18 8 30 z" fill="var(--gold)" stroke="#b8923f" stroke-width="2"/>
+        <circle cx="192" cy="60" r="4.5" fill="#e07b8a"/>
+      </g>
+    </g>
+  </svg>
+</div>
+
+<div class="wrap">
+  <div class="stagebadge"><span id="stage-name">아기 달팽이</span><span id="stage-next">다음 진화까지 50</span></div>
+  <div class="bar"><span id="evo-fill"></span></div>
+  <div class="stagebadge" style="margin-top:10px"><span>기분</span><span id="mood-label">자는 중</span></div>
+  <div class="bar mood"><span id="mood-fill"></span></div>
+
+  <h2>상점</h2>
+  <div class="shop" id="shop"></div>
+
+  <div class="prestige-box" id="prestigeBox" style="display:none">
+    <p>완전히 자란 달팽이는 허물을 벗고 다시 아기로 돌아갈 수 있습니다. 대신 <b>영구적인 배율 증가</b>를 얻습니다 (장신구·업적은 그대로 유지).</p>
+    <button class="pbtn" id="prestige">허물벗기 — 정수 +0 획득</button>
+  </div>
+
+  <h2>도감</h2>
+  <div class="ach-grid" id="achGrid"></div>
+
+  <div class="foot">
+    <span id="essenceLbl" style="opacity:.55;font-size:13px;align-self:center"></span>
+    <button id="sound">소리 끄기</button>
+    <button id="reset">처음부터 새로고침</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const stage=$('stage'), bubble=$('bubble'), shopEl=$('shop');
+
+/* ── 상태 ─────────────────────────────── */
+const DEF = { slime:0, pets:0, glove:0, friend:0, leaf:0, garden:0,
+  essence:0, prestige:0, own:{}, wear:{}, ach:{}, sound:true };
+let S = structuredClone(DEF);
+try{ Object.assign(S, JSON.parse(localStorage.getItem('snailgame')||'{}')); }catch(e){}
+const save = () => { try{ localStorage.setItem('snailgame', JSON.stringify(S)); }catch(e){} };
+
+let mood=0, combo=0, comboT=0, dist=0, last=null, petting=false, rainT=0;
+
+/* ── 진화 ─────────────────────────────── */
+const STAGES=[
+  {at:0,    name:'아기 달팽이',   color:'#d9a05b', scale:.78},
+  {at:30,   name:'청소년 달팽이', color:'#c98b3c', scale:.9},
+  {at:100,  name:'어른 달팽이',   color:'#b06b2a', scale:1},
+  {at:300,  name:'장로 달팽이',   color:'#7b4fa8', scale:1.1},
+  {at:1000, name:'전설의 달팽이', color:'#3fa9a0', scale:1.2},
+];
+const stageIdx = () => { let i=0; STAGES.forEach((s,k)=>{ if(S.pets>=s.at) i=k; }); return i; };
+
+/* ── 상점 ─────────────────────────────── */
+const SHOP=[
+  {id:'glove', name:'보들보들 장갑', desc:'쓰다듬기 1회 획득 +1', base:15, grow:1.55, up:1},
+  {id:'friend',name:'친구 달팽이',   desc:'가만히 있어도 초당 +1', base:35, grow:1.5, up:1},
+  {id:'leaf',  name:'황금 잎사귀',   desc:'모든 점액 획득 +5%', base:80, grow:1.7, up:1},
+  {id:'garden',name:'정원 확장',     desc:'친구 달팽이 효율 +15%', base:120, grow:1.75, up:1},
+  {id:'straw', name:'밀짚모자',  desc:'여름 달팽이', cost:150},
+  {id:'shades',name:'선글라스',  desc:'쿨한 달팽이', cost:500},
+  {id:'ribbon',name:'리본',      desc:'멋쟁이 달팽이', cost:1400},
+  {id:'crown', name:'왕관',      desc:'달팽이 왕국의 군주', cost:4000},
+  {id:'wings', name:'반짝이 날개', desc:'날 수는 없지만 반짝인다', cost:9000},
+  {id:'rainbow',name:'무지개 껍질', desc:'껍질 색이 계속 바뀐다', cost:20000},
+];
+const costOf = it => it.up ? Math.floor(it.base * Math.pow(it.grow, S[it.id])) : it.cost;
+const fmt = n => n>=10000 ? (n/1000).toFixed(1)+'k' : Math.floor(n).toLocaleString();
+
+function buildShop(){
+  shopEl.innerHTML='';
+  SHOP.forEach(it=>{
+    const b=document.createElement('button');
+    b.className='item'; b.dataset.id=it.id;
+    b.innerHTML=`<b></b><i>${it.desc}</i><u></u>`;
+    b.onclick=()=>buy(it);
+    shopEl.appendChild(b);
+  });
+  refreshShop();
+}
+function refreshShop(){
+  SHOP.forEach(it=>{
+    const b=shopEl.querySelector(`[data-id="${it.id}"]`);
+    const owned=!it.up && S.own[it.id];
+    b.querySelector('b').textContent = it.up ? `${it.name} Lv.${S[it.id]}` : it.name;
+    b.querySelector('u').textContent = owned ? (S.wear[it.id]?'착용 중 — 벗기':'착용하기') : `점액 ${fmt(costOf(it))}`;
+    b.disabled = !owned && S.slime < costOf(it);
+    b.classList.toggle('worn', !!S.wear[it.id]);
+  });
+}
+function buy(it){
+  if(!it.up && S.own[it.id]){ S.wear[it.id]=!S.wear[it.id]; paintWear(); save(); refreshShop(); return; }
+  const c=costOf(it);
+  if(S.slime<c) return;
+  S.slime-=c; beep(700,.06);
+  if(it.up){ S[it.id]++; if(it.id==='friend'&&S.friend===1) unlock('friend','친구가 생겼다'); }
+  else { S.own[it.id]=1; S.wear[it.id]=1; paintWear();
+         if(SHOP.filter(x=>!x.up).every(x=>S.own[x.id])) unlock('fashion','패션의 완성'); }
+  save(); render(); refreshShop();
+}
+function paintWear(){
+  document.querySelectorAll('.wear').forEach(el=>
+    el.classList.toggle('on', !!S.wear[el.dataset.wear]));
+  stage.classList.toggle('rainbow-on', !!S.wear.rainbow);
+}
+
+/* ── 소리 ─────────────────────────────── */
+let ac;
+function beep(freq,dur=.05){
+  if(!S.sound) return;
+  try{
+    ac = ac || new (window.AudioContext||window.webkitAudioContext)();
+    const o=ac.createOscillator(), g=ac.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(.06,ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+dur);
+    o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime+dur);
+  }catch(e){}
+}
+
+/* ── 말풍선 / 팝업 ────────────────────── */
+const LINES=['히히','좋아','즐거워','음...','오오'];
+let bt;
+function say(p){ bubble.textContent=p[Math.random()*p.length|0];
+  bubble.classList.add('show'); clearTimeout(bt);
+  bt=setTimeout(()=>bubble.classList.remove('show'),1500); }
+function pop(x,y,txt){
+  const d=document.createElement('div'); d.className='pop'; d.textContent=txt;
+  d.style.left=x+'px'; d.style.top=y+'px'; stage.appendChild(d);
+  setTimeout(()=>d.remove(),1000);
+}
+
+/* ── 업적 ─────────────────────────────── */
+const ACH={first:'첫 쓰다듬',hundred:'100번 쓰다듬기',thousand:'1000번 쓰다듬기',
+  friend:'친구가 생겼다',combo:'콤보 ×5 달성',fashion:'패션의 완성',
+  bird:'새 격퇴',legend:'전설의 달팽이',rich:'점액 10000 보유',
+  rebirth:'첫 허물벗기',rebirth5:'허물벗기 5회'};
+let tt;
+function unlock(k,label){
+  if(S.ach[k]) return; S.ach[k]=1; save();
+  const t=$('toast'); t.textContent='🏆 '+(label||ACH[k]);
+  t.classList.add('show'); beep(880,.12);
+  clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+/* ── 쓰다듬기 ─────────────────────────── */
+function onShell(e){
+  const r=stage.getBoundingClientRect();
+  const x=(e.clientX-r.left)/r.width*400, y=(e.clientY-r.top)/r.height*300;
+  return Math.hypot(x-192,y-150) < 62*STAGES[stageIdx()].scale+8;
+}
+stage.addEventListener('pointerdown',e=>{
+  if(!onShell(e)) return;
+  petting=true; dist=0; last={x:e.clientX,y:e.clientY};
+  stage.classList.add('petting'); stage.setPointerCapture?.(e.pointerId);
+});
+const globalMult = () => (1+S.leaf*.05)*(1+S.essence*.1);
+stage.addEventListener('pointermove',e=>{
+  if(!petting||!last) return;
+  const d=Math.min(Math.hypot(e.clientX-last.x,e.clientY-last.y),18);
+  last={x:e.clientX,y:e.clientY};
+  dist+=d; mood=Math.min(100,mood+d*.1);
+  if(dist>55){
+    dist=0; S.pets++; comboT=Date.now();
+    combo=Math.min(combo+1,40);
+    const mult=1+combo/10, gain=(1+S.glove)*mult*globalMult()*(rainT>Date.now()?2:1);
+    S.slime+=gain;
+    const r=stage.getBoundingClientRect();
+    pop(e.clientX-r.left, e.clientY-r.top, '+'+gain.toFixed(1));
+    beep(320+combo*14,.04);
+    if(S.pets===1) unlock('first');
+    if(S.pets===100) unlock('hundred');
+    if(S.pets===1000) unlock('thousand');
+    if(combo>=40) unlock('combo');
+    if(S.slime>=10000) unlock('rich');
+    if(stageIdx()===4) unlock('legend');
+    say(LINES);
+    save();
+  }
+  render();
+});
+['pointerup','pointercancel','pointerleave'].forEach(ev=>
+  stage.addEventListener(ev,()=>{ petting=false; last=null; stage.classList.remove('petting'); }));
+
+/* ── 이벤트 ───────────────────────────── */
+function spawnLettuce(){
+  const o=document.createElement('div');
+  o.className='obj lettuce'; o.textContent='🥬';
+  o.style.left=(20+Math.random()*60)+'%'; o.style.top='58%';
+  o.onclick=()=>{ mood=100; S.slime+=40*globalMult(); beep(520,.1);
+    pop(o.offsetLeft,o.offsetTop,'+40'); say(LINES); o.remove(); save(); render(); };
+  stage.appendChild(o); setTimeout(()=>o.remove(),9000);
+}
+function spawnBird(){
+  const o=document.createElement('div');
+  o.className='obj bird'; o.textContent='🐦'; o.style.top='12%';
+  let hp=3;
+  o.onclick=()=>{ if(--hp<=0){ const g=120*globalMult(); S.slime+=g; pop(o.offsetLeft,o.offsetTop,'+'+g.toFixed(0));
+      unlock('bird'); beep(760,.1); o.remove(); save(); render(); } else beep(200,.05); };
+  stage.appendChild(o);
+  setTimeout(()=>{ if(o.isConnected){ o.remove(); S.slime=Math.max(0,S.slime*.9);
+    say(LINES); mood=Math.max(0,mood-30); save(); render(); } },7000);
+}
+function startRain(){
+  rainT=Date.now()+12000;
+  const r=$('rain'); r.innerHTML='';
+  for(let i=0;i<30;i++){ const d=document.createElement('i');
+    d.style.left=Math.random()*100+'%'; d.style.animationDelay=(Math.random()*-1)+'s';
+    d.style.animationDuration=(.6+Math.random()*.6)+'s'; r.appendChild(d); }
+  r.classList.add('on'); say(LINES);
+  setTimeout(()=>r.classList.remove('on'),12000);
+}
+function scheduleEvent(){
+  setTimeout(()=>{ [spawnLettuce,spawnBird,startRain][Math.random()*3|0](); scheduleEvent(); },
+    16000+Math.random()*16000);
+}
+scheduleEvent();
+
+/* ── 루프 ─────────────────────────────── */
+setInterval(()=>{
+  if(S.friend) { S.slime += S.friend*1*(1+S.garden*.15)*globalMult()/5; }
+  if(!petting && mood>0) mood=Math.max(0,mood-.35);
+  if(Date.now()-comboT>1200) combo=Math.max(0,combo-2);
+  render();
+},200);
+setInterval(save,4000);
+
+function render(){
+  $('slime').textContent=fmt(S.slime);
+  $('rate').textContent='초당 '+(S.friend*(1+S.garden*.15)*globalMult()).toFixed(1);
+  $('rainlbl').textContent = rainT>Date.now() ? '🌧 점액 2배!' : '';
+  const c=$('combo'); c.textContent='×'+(1+combo/10).toFixed(1);
+  c.classList.toggle('on',combo>0);
+
+  const i=stageIdx(), st=STAGES[i], nx=STAGES[i+1];
+  $('shell-body').setAttribute('fill',st.color);
+  $('shell-g').style.transform=`scale(${st.scale})`;
+  $('stage-name').textContent=st.name+(S.prestige?` (환생 ${S.prestige}회)`:'');
+  $('stage-next').textContent = nx ? `다음 진화까지 ${nx.at-S.pets}번` : `총 ${fmt(S.pets)}번 쓰다듬음`;
+  $('evo-fill').style.width = nx ? ((S.pets-st.at)/(nx.at-st.at)*100)+'%' : '100%';
+
+  $('mood-fill').style.width=mood+'%';
+  stage.classList.toggle('happy',mood>45);
+  $('blush').style.opacity = mood>60?1:0;
+  $('mood-label').textContent = mood>80?'완전 행복':mood>45?'기분 좋음':mood>10?'깨어나는 중':'자는 중';
+  refreshShop();
+
+  const box=$('prestigeBox');
+  box.style.display = i===STAGES.length-1 ? 'block' : 'none';
+  if(i===STAGES.length-1 && !prestigeArmed) $('prestige').textContent=`허물벗기 — 정수 +${prestigeGain()} 획득`;
+  $('essenceLbl').textContent = S.essence ? `정수 ${S.essence}개 · 배율 ×${globalMult().toFixed(2)}` : '';
+  refreshAch();
+}
+
+/* ── 도감 ─────────────────────────────── */
+function buildAch(){
+  const g=$('achGrid'); g.innerHTML='';
+  Object.entries(ACH).forEach(([k,label])=>{
+    const d=document.createElement('div'); d.className='ach'; d.dataset.k=k;
+    d.innerHTML=`<span class="ico">🏆</span><span>${label}</span>`;
+    g.appendChild(d);
+  });
+}
+function refreshAch(){
+  document.querySelectorAll('.ach').forEach(el=>
+    el.classList.toggle('done', !!S.ach[el.dataset.k]));
+}
+
+/* ── 환생 ─────────────────────────────── */
+function prestigeGain(){ return Math.max(1, Math.floor(Math.sqrt(S.pets/60))); }
+let prestigeArmed=false, prestigeArmT;
+$('prestige').onclick=()=>{
+  const gain=prestigeGain();
+  if(!prestigeArmed){
+    prestigeArmed=true;
+    $('prestige').textContent='정말요? 다시 누르면 초기화됩니다';
+    clearTimeout(prestigeArmT);
+    prestigeArmT=setTimeout(()=>{ prestigeArmed=false; $('prestige').textContent=`허물벗기 — 정수 +${prestigeGain()} 획득`; },3000);
+    return;
+  }
+  prestigeArmed=false; clearTimeout(prestigeArmT);
+  S.essence+=gain; S.prestige++;
+  S.pets=0; S.slime=0; S.glove=0; S.friend=0; S.leaf=0; S.garden=0;
+  if(gain>=1) unlock('rebirth');
+  if(S.prestige>=5) unlock('rebirth5');
+  mood=combo=0; save(); render();
+  $('prestige').textContent=`허물벗기 — 정수 +${prestigeGain()} 획득`;
+  say(LINES);
+};
+
+/* ── 버튼 ─────────────────────────────── */
+$('sound').onclick=e=>{ S.sound=!S.sound; e.target.textContent=S.sound?'소리 끄기':'소리 켜기'; save(); };
+let resetArmed=false, resetArmT;
+$('reset').onclick=()=>{
+  if(!resetArmed){
+    resetArmed=true;
+    $('reset').textContent='정말요? 다시 누르면 삭제됩니다';
+    clearTimeout(resetArmT);
+    resetArmT=setTimeout(()=>{ resetArmed=false; $('reset').textContent='처음부터 새로고침'; },3000);
+    return;
+  }
+  try{ localStorage.removeItem('snailgame'); }catch(e){}
+  S=structuredClone(DEF); mood=0; combo=0; rainT=0;
+  document.querySelectorAll('.obj').forEach(o=>o.remove());
+  paintWear(); save(); render();
+  $('reset').textContent='처음부터 새로고침';
+  say(LINES);
+};
+
+$('sound').textContent = S.sound?'소리 끄기':'소리 켜기';
+buildShop(); buildAch(); paintWear(); render();
+setTimeout(()=>say(LINES),700);
+})();
+</script>
+</body>
+</html>
